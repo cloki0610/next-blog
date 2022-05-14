@@ -1,4 +1,6 @@
-const handler = (req, res) => {
+import { MongoClient } from "mongodb";
+
+const handler = async (req, res) => {
     if (req.method === "POST") {
         const { email, name, message } = req.body;
 
@@ -15,13 +17,33 @@ const handler = (req, res) => {
             return;
         }
 
-        // Store in database
         const newMessage = {
             email,
             name,
             message,
         };
 
+        // Connect MongoDB
+        let client;
+        try {
+            client = await MongoClient.connect(process.env.DB_URL);
+        } catch (error) {
+            res.status(500).json({ message: 'Could not connect to database.' });
+            return;
+        }
+        const db = client.db();
+
+        // Insert form data
+        try {
+            const result = await db.collection('blog-messages').insertOne(newMessage);
+            newMessage.id = result.insertedId;
+        } catch (error) {
+            client.close();
+            res.status(500).json({ message: 'Storing message failed.' });
+            return;
+        }
+
+        client.close();
         res.status(201).json({
             message: 'Message Successfully Received.'
         });
